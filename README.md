@@ -2,10 +2,6 @@
 
 > **This repository has moved to the official Cloudflare GitHub org:**
 > **https://github.com/cloudflare/splunk-ta-cloudflare-r2**
->
-> **Cloudflare internal**: To troubleshoot or maintain this add-on using OpenCode,
-> open a new session in this directory and say:
-> `Read AGENT_PROMPT.md and use it as your context for this session.`
 
 A Splunk Technology Add-on (TA) that ingests Cloudflare Logpush log files from
 Cloudflare R2 via a Python modular input using the S3-compatible API.
