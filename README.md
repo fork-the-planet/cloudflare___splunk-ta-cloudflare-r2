@@ -1,8 +1,5 @@
 # Cloudflare R2 Log Ingestion Add-on for Splunk
 
-> **This repository has moved to the official Cloudflare GitHub org:**
-> **https://github.com/cloudflare/splunk-ta-cloudflare-r2**
-
 A Splunk Technology Add-on (TA) that ingests Cloudflare Logpush log files from
 Cloudflare R2 via a Python modular input using the S3-compatible API.
 
