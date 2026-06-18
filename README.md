@@ -1,5 +1,8 @@
 # Cloudflare R2 Log Ingestion Add-on for Splunk
 
+> **This repository has moved to the official Cloudflare GitHub org:**
+> **https://github.com/cloudflare/splunk-ta-cloudflare-r2**
+>
 > **Cloudflare internal**: To troubleshoot or maintain this add-on using OpenCode,
 > open a new session in this directory and say:
 > `Read AGENT_PROMPT.md and use it as your context for this session.`
