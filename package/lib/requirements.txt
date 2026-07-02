@@ -1,0 +1,15 @@
+# Runtime dependencies for TA_cloudflare_r2.
+#
+# The R2 access layer (bin/r2client.py) is PURE PYTHON STANDARD LIBRARY:
+# no boto3, botocore, urllib3, s3transfer, jmespath, or python-dateutil.
+# This is deliberate — it removes the EOL-SDK liability (boto3 1.43+ needs
+# Python >=3.10 while Splunk 9.4/10.0 ship 3.9) and the urllib3/OpenSSL coupling.
+#
+# The only runtime libraries are the Splunk-supplied UCC stack, pinned for
+# reproducible builds. urllib3<2 is LOAD-BEARING: urllib3 2.x refuses OpenSSL
+# <1.1.1, and Splunk 9.4 (the support floor) ships OpenSSL 1.0.2. Do not relax
+# this pin while Splunk 9.4 is supported.
+splunktaucclib==6.5.3
+splunk-sdk==2.1.1
+solnlib==5.4.0
+urllib3<2

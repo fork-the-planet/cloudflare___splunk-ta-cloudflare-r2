@@ -1,0 +1,338 @@
+{
+    "pages": {
+        "configuration": {
+            "title": "Configuration",
+            "description": "Configure Cloudflare R2 accounts and logging for the add-on.",
+            "tabs": [
+                {
+                    "name": "account",
+                    "title": "Cloudflare R2 Account",
+                    "table": {
+                        "actions": [
+                            "edit",
+                            "delete",
+                            "clone"
+                        ],
+                        "header": [
+                            {
+                                "label": "Name",
+                                "field": "name"
+                            },
+                            {
+                                "label": "Account ID",
+                                "field": "account_id"
+                            }
+                        ]
+                    },
+                    "entity": [
+                        {
+                            "type": "text",
+                            "label": "Account name",
+                            "field": "name",
+                            "help": "A unique name for this Cloudflare R2 account/credential set.",
+                            "required": true,
+                            "validators": [
+                                {
+                                    "type": "regex",
+                                    "errorMsg": "Account name must begin with a letter and consist only of alphanumeric characters and underscores.",
+                                    "pattern": "^[a-zA-Z]\\w*$"
+                                },
+                                {
+                                    "type": "string",
+                                    "errorMsg": "Account name length must be between 1 and 100 characters.",
+                                    "minLength": 1,
+                                    "maxLength": 100
+                                }
+                            ]
+                        },
+                        {
+                            "type": "text",
+                            "label": "Cloudflare Account ID",
+                            "field": "account_id",
+                            "help": "32-character hex Cloudflare account ID. Used to build the R2 endpoint URL.",
+                            "required": true,
+                            "validators": [
+                                {
+                                    "type": "regex",
+                                    "errorMsg": "Account ID must be a 32-character hexadecimal string.",
+                                    "pattern": "^[0-9a-fA-F]{32}$"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "text",
+                            "label": "R2 Access Key ID",
+                            "field": "access_key_id",
+                            "help": "R2 S3-compatible API access key ID (Cloudflare Dashboard > R2 > Manage R2 API Tokens).",
+                            "required": true,
+                            "validators": [
+                                {
+                                    "type": "string",
+                                    "errorMsg": "Access Key ID length must be between 1 and 256 characters.",
+                                    "minLength": 1,
+                                    "maxLength": 256
+                                }
+                            ]
+                        },
+                        {
+                            "type": "text",
+                            "label": "R2 Secret Access Key",
+                            "field": "secret_access_key",
+                            "help": "R2 S3-compatible API secret access key. Stored encrypted in Splunk's credential store (storage/passwords).",
+                            "required": true,
+                            "encrypted": true,
+                            "validators": [
+                                {
+                                    "type": "string",
+                                    "errorMsg": "Secret Access Key length must be between 1 and 512 characters.",
+                                    "minLength": 1,
+                                    "maxLength": 512
+                                }
+                            ]
+                        },
+                        {
+                            "type": "checkbox",
+                            "label": "Verify SSL certificate",
+                            "field": "verify_ssl",
+                            "defaultValue": true,
+                            "options": {
+                                "hideForPlatform": "cloud"
+                            },
+                            "help": "Verify the R2 endpoint TLS certificate. Disable only for TLS-inspection networks where you cannot supply a CA bundle (insecure)."
+                        },
+                        {
+                            "type": "text",
+                            "label": "CA bundle path (on-prem only)",
+                            "field": "ca_bundle_path",
+                            "required": false,
+                            "options": {
+                                "hideForPlatform": "cloud"
+                            },
+                            "help": "Absolute path to a CA bundle for outbound TLS-inspection environments. Not supported on Splunk Cloud (locked filesystem).",
+                            "validators": [
+                                {
+                                    "type": "string",
+                                    "errorMsg": "CA bundle path length must be 4096 characters or fewer.",
+                                    "minLength": 0,
+                                    "maxLength": 4096
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "type": "loggingTab"
+                }
+            ]
+        },
+        "inputs": {
+            "title": "Inputs",
+            "description": "Manage Cloudflare R2 log-ingestion inputs. One input per bucket/prefix.",
+            "table": {
+                "actions": [
+                    "edit",
+                    "delete",
+                    "clone"
+                ],
+                "header": [
+                    {
+                        "label": "Name",
+                        "field": "name"
+                    },
+                    {
+                        "label": "Account",
+                        "field": "account"
+                    },
+                    {
+                        "label": "Bucket",
+                        "field": "bucket_name"
+                    },
+                    {
+                        "label": "Interval",
+                        "field": "interval"
+                    },
+                    {
+                        "label": "Index",
+                        "field": "index"
+                    },
+                    {
+                        "label": "Status",
+                        "field": "disabled"
+                    }
+                ],
+                "moreInfo": [
+                    {
+                        "label": "Name",
+                        "field": "name"
+                    },
+                    {
+                        "label": "Account",
+                        "field": "account"
+                    },
+                    {
+                        "label": "Bucket",
+                        "field": "bucket_name"
+                    },
+                    {
+                        "label": "Key prefix",
+                        "field": "key_prefix"
+                    },
+                    {
+                        "label": "Interval",
+                        "field": "interval"
+                    },
+                    {
+                        "label": "Index",
+                        "field": "index"
+                    },
+                    {
+                        "label": "Lookback (days)",
+                        "field": "lookback_days"
+                    },
+                    {
+                        "label": "Status",
+                        "field": "disabled",
+                        "mapping": {
+                            "true": "Inactive",
+                            "false": "Active"
+                        }
+                    }
+                ]
+            },
+            "services": [
+                {
+                    "name": "cloudflare_r2",
+                    "title": "Cloudflare R2 Log Ingestion",
+                    "inputHelperModule": "cloudflare_r2_helper",
+                    "entity": [
+                        {
+                            "type": "text",
+                            "label": "Name",
+                            "field": "name",
+                            "help": "A unique name for this data input.",
+                            "required": true,
+                            "validators": [
+                                {
+                                    "type": "regex",
+                                    "errorMsg": "Input name must begin with a letter and consist only of alphanumeric characters and underscores.",
+                                    "pattern": "^[a-zA-Z]\\w*$"
+                                },
+                                {
+                                    "type": "string",
+                                    "errorMsg": "Input name length must be between 1 and 100 characters.",
+                                    "minLength": 1,
+                                    "maxLength": 100
+                                }
+                            ]
+                        },
+                        {
+                            "type": "singleSelect",
+                            "label": "Cloudflare R2 account",
+                            "field": "account",
+                            "help": "The Cloudflare R2 account (credentials) to use for this input.",
+                            "required": true,
+                            "options": {
+                                "referenceName": "account"
+                            },
+                            "validators": [
+                                {
+                                    "type": "string",
+                                    "errorMsg": "Account name length must be between 1 and 100 characters.",
+                                    "minLength": 1,
+                                    "maxLength": 100
+                                }
+                            ]
+                        },
+                        {
+                            "type": "text",
+                            "label": "R2 bucket name",
+                            "field": "bucket_name",
+                            "help": "Name of the R2 bucket containing Cloudflare Logpush files.",
+                            "required": true,
+                            "validators": [
+                                {
+                                    "type": "string",
+                                    "errorMsg": "Bucket name length must be between 1 and 256 characters.",
+                                    "minLength": 1,
+                                    "maxLength": 256
+                                }
+                            ]
+                        },
+                        {
+                            "type": "text",
+                            "label": "Key prefix (optional)",
+                            "field": "key_prefix",
+                            "required": false,
+                            "help": "Limit processing to keys under this prefix, e.g. gateway_dns/ or http_requests/. Leave blank for all objects.",
+                            "validators": [
+                                {
+                                    "type": "string",
+                                    "errorMsg": "Key prefix length must be 1024 characters or fewer.",
+                                    "minLength": 0,
+                                    "maxLength": 1024
+                                }
+                            ]
+                        },
+                        {
+                            "type": "text",
+                            "label": "Lookback window (days)",
+                            "field": "lookback_days",
+                            "defaultValue": "1",
+                            "help": "How far back to scan R2 on each poll (bounds the list). New files are deduped against a KV Store processed-key set. Widen if Logpush late-delivers batches.",
+                            "required": true,
+                            "validators": [
+                                {
+                                    "type": "regex",
+                                    "errorMsg": "Lookback must be a positive integer number of days.",
+                                    "pattern": "^[1-9]\\d*$"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "interval",
+                            "label": "Interval",
+                            "field": "interval",
+                            "defaultValue": "300",
+                            "help": "How often to poll R2 for new files, in seconds.",
+                            "required": true
+                        },
+                        {
+                            "type": "index",
+                            "label": "Index",
+                            "field": "index",
+                            "defaultValue": "default"
+                        },
+                        {
+                            "type": "text",
+                            "label": "Source type",
+                            "field": "sourcetype",
+                            "defaultValue": "cloudflare:json",
+                            "help": "Splunk sourcetype for emitted events. Match the Cloudflare App for Splunk (4501) sourcetypes where applicable (e.g. cloudflare:json, cloudflare:dns).",
+                            "required": true,
+                            "validators": [
+                                {
+                                    "type": "string",
+                                    "errorMsg": "Source type length must be between 1 and 256 characters.",
+                                    "minLength": 1,
+                                    "maxLength": 256
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "meta": {
+        "name": "TA_cloudflare_r2",
+        "restRoot": "TA_cloudflare_r2",
+        "version": "1.0.0",
+        "displayName": "Cloudflare R2 Log Ingestion",
+        "schemaVersion": "0.0.9",
+        "supportedThemes": [
+            "light",
+            "dark"
+        ],
+        "_uccVersion": "5.52.0"
+    }
+}
