@@ -3,8 +3,7 @@
 A Splunk Technology Add-on (TA) that ingests Cloudflare Logpush log files from
 Cloudflare R2 via a Python modular input using the S3-compatible API.
 
-**AppInspect**: 0 errors | 0 failures | 0 future_failures  
-**Tested on**: Splunk Enterprise 10.4.0 (Python 3.13)
+**Tested on**: Splunk Enterprise 9.4 (Python 3.9)
 
 ---
 
@@ -31,35 +30,62 @@ Cloudflare R2 bucket  →  ListObjectsV2 + GetObject  →  gunzip  →  Splunk i
 - Works with **any Cloudflare Logpush dataset** (Gateway DNS, HTTP Requests,
   Access, Audit, etc.) - fully dataset-agnostic
 - One input instance per bucket/prefix, each with its own sourcetype and index
-- Checkpointing via `StartAfter` - only new files are processed after each poll
-- Checkpoints survive Splunk restarts - zero duplicate events
-- Multi-account: each input has independent credentials, so multiple Cloudflare
-  accounts can feed a single Splunk instance
+- Checkpointing via a typed KV Store processed-key set (one entry per ingested
+  object, scoped per input) plus a configurable lookback window - each poll
+  re-lists the lookback window and skips objects already recorded, so only new
+  objects are ingested. Checkpoints survive Splunk restarts, and because dedupe
+  is per-object (not a single monotonic cursor), a late-delivered Logpush batch
+  whose key sorts before earlier objects is still picked up. Delivery is
+  at-least-once: an object's checkpoint is written only after its events are
+  emitted, so an ungraceful crash mid-object may re-ingest that object on the
+  next poll (a small number of duplicate events). Under normal operation each
+  object is ingested exactly once, with no search-time deduplication required.
+- Multiple Cloudflare accounts: credentials live in named **Accounts**; each
+  input selects an account, so several Cloudflare accounts can feed one Splunk
+  instance
 
 ---
 
 ## Installation
 
-1. Download `TA-cloudflare-r2-0.1.0.tgz` from [Releases](../../releases)
+1. Download `TA_cloudflare_r2-1.0.0.spl` from [Releases](../../releases)
 2. In Splunk Web: **Apps > Manage Apps > Install app from file**
-3. Upload the `.tgz` file and click **Upload**
+3. Upload the `.spl` file and click **Upload**
 
 ---
 
 ## Configuration
 
-Go to **Settings > Data Inputs > Cloudflare R2 Log Ingestion > New**.
+This add-on uses the Splunk UCC configuration model: credentials live in a
+reusable **Account**, and each **Input** selects an account by name.
+
+### Step 1 — Create an Account
+
+In the add-on's UI, open **Configuration > Cloudflare R2 Account > Add**.
 
 | Field | Description |
 |---|---|
-| Input Name | Unique name for this input instance |
+| Account name | Unique name for this credential set (referenced by inputs) |
 | Cloudflare Account ID | 32-character hex string from your Cloudflare dashboard URL |
 | R2 Access Key ID | Generate via: Cloudflare Dashboard > R2 > Manage R2 API Tokens |
-| R2 Secret Access Key | Shown once at token creation. Object Read permission required. |
-| R2 Bucket Name | Name of the R2 bucket containing Logpush files |
-| Key Prefix | Subfolder to scope to one dataset (e.g. `gateway_dns/`). Leave blank for all files. |
-| Polling Interval | How often to check for new files, in seconds. Default: 300 |
-| Verify SSL Certificate | Uncheck only if your network performs TLS inspection on outbound traffic |
+| R2 Secret Access Key | Shown once at token creation. Stored encrypted via `storage/passwords`. |
+| Verify SSL certificate | On-prem only. Uncheck only if your network performs TLS inspection on outbound traffic |
+| CA bundle path (on-prem only) | On-prem only. Path to your inspection CA bundle (preferred over disabling verification) |
+
+The R2 API token needs **Object Read** permission on the target bucket.
+
+### Step 2 — Create an Input
+
+Open the **Inputs** page and add a **Cloudflare R2 Log Ingestion** input.
+
+| Field | Description |
+|---|---|
+| Name | Unique name for this input instance |
+| Cloudflare R2 account | The Account created in Step 1 |
+| R2 bucket name | Name of the R2 bucket containing Logpush files |
+| Key prefix (optional) | Subfolder to scope to one dataset (e.g. `gateway_dns/`). Leave blank for all files. |
+| Lookback window (days) | How far back each poll re-lists objects to catch late-delivered Logpush batches. Default: 1 |
+| Interval | How often to check for new files, in seconds. Default: 300 |
 | Source type | Splunk sourcetype for events (see table below) |
 | Index | Splunk index to store events |
 
@@ -83,12 +109,14 @@ Create one input per dataset, each pointing at a different prefix:
 
 ```ini
 [cloudflare_r2://my_gateway_dns]
+account = my_cf_account
 bucket_name = my-logpush-bucket
 key_prefix = gateway_dns/
 sourcetype = cloudflare:dns
 index = cloudflare_logs
 
 [cloudflare_r2://my_http_requests]
+account = my_cf_account
 bucket_name = my-logpush-bucket
 key_prefix = http_requests/
 sourcetype = cloudflare:json
@@ -97,18 +125,20 @@ index = cloudflare_logs
 
 ### Multiple Cloudflare accounts
 
-Each input has its own credentials, so multiple Cloudflare accounts work natively:
+Create one Account per Cloudflare account, then point each input at the
+appropriate account. No credentials appear in `inputs.conf` — the input only
+references an account by name:
 
 ```ini
 [cloudflare_r2://account_a_dns]
-account_id = <account_a_id>
-access_key_id = <account_a_key>
-...
+account = cf_account_a
+bucket_name = account-a-logs
+key_prefix = gateway_dns/
 
 [cloudflare_r2://account_b_dns]
-account_id = <account_b_id>
-access_key_id = <account_b_key>
-...
+account = cf_account_b
+bucket_name = account-b-logs
+key_prefix = gateway_dns/
 ```
 
 ---
@@ -124,18 +154,29 @@ access_key_id = <account_b_key>
 
 ---
 
-## Resetting checkpoints (re-ingest all data)
+## Resetting checkpoints (re-ingest the lookback window)
+
+Checkpoints live in the KV Store collection `TA_cloudflare_r2_processed_keys`
+(not in `inputs.conf` and not on the app-local filesystem, so
+`splunk clean inputdata` does **not** clear them). Deleting the collection's
+data makes the next poll treat every object in the lookback window as new and
+re-ingest it:
 
 ```bash
-splunk clean inputdata cloudflare_r2
+curl -k -u admin:'<your-admin-password>' -X DELETE \
+  https://localhost:8089/servicesNS/nobody/TA_cloudflare_r2/storage/collections/data/TA_cloudflare_r2_processed_keys
 ```
+
+This re-ingests only the current **Lookback window (days)**, not all history —
+Logpush objects older than the window are no longer listed in R2.
 
 ---
 
 ## Requirements
 
-- Splunk Enterprise 8.x or higher
-- Python 3 (bundled with Splunk 8+)
+- Splunk Enterprise 9.4 or higher — 9.4 is the oldest actively-supported release and matches a supported enterprise production baseline. Earlier releases (8.x / 9.0–9.3) are past end-of-support and out of scope.
+- The R2 client (`bin/r2client.py`) uses the Python standard library only; the Splunk-supplied libraries (splunklib, solnlib, splunktaucclib) are bundled by the build
+- Runs on a heavy forwarder / IDM / standalone / search head (requires KV Store; not a Universal Forwarder)
 - Cloudflare account with R2 enabled
 - R2 API token with **Object Read** permission on the target bucket
 
@@ -143,10 +184,6 @@ splunk clean inputdata cloudflare_r2
 
 ## Known limitations
 
-- **Credentials stored in inputs.conf** - the secret access key is stored in
-  `inputs.conf` in the current version. A future version should implement a
-  custom REST handler to store credentials via Splunk's `storage/passwords` API.
-  See [DEVELOPMENT.md](DEVELOPMENT.md) for details.
 - **No Splunk Cloud validation** - tested on Splunk Enterprise only.
 
 ---
@@ -161,4 +198,4 @@ See [SECURITY.md](SECURITY.md) for reporting vulnerabilities.
 
 ## License
 
-Apache 2.0 - see [LICENSE](TA-cloudflare-r2/LICENSE)
+Apache 2.0 - see [LICENSE](package/LICENSE.txt)
