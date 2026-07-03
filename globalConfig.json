@@ -95,9 +95,6 @@
                             "label": "Verify SSL certificate",
                             "field": "verify_ssl",
                             "defaultValue": true,
-                            "options": {
-                                "hideForPlatform": "cloud"
-                            },
                             "help": "Verify the R2 endpoint TLS certificate. Disable only for TLS-inspection networks where you cannot supply a CA bundle (insecure)."
                         },
                         {
@@ -105,9 +102,6 @@
                             "label": "CA bundle path (on-prem only)",
                             "field": "ca_bundle_path",
                             "required": false,
-                            "options": {
-                                "hideForPlatform": "cloud"
-                            },
                             "help": "Absolute path to a CA bundle for outbound TLS-inspection environments. Not supported on Splunk Cloud (locked filesystem).",
                             "validators": [
                                 {
