@@ -42,3 +42,7 @@ AGENT_PROMPT.md
 MAINTENANCE.md
 CSUP_RUNBOOK.md
 UCC_EXECUTION_PLAN.md
+
+# AppInspect report outputs (transient scan artifacts)
+appinspect_precert.txt
+appinspect_cloud.txt
