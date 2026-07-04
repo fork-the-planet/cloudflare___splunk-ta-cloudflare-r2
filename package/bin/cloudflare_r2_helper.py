@@ -45,6 +45,7 @@ Design:
 
 import datetime
 import json
+import zlib
 
 import import_declare_test  # noqa: F401  (UCC-generated sys.path setup for lib/)
 
@@ -62,7 +63,8 @@ _CHECKPOINT_COLLECTION = ADDON_NAME + "_processed_keys"
 
 # Cloudflare Logpush writes gzipped NDJSON objects with this suffix. Objects not
 # ending in it (e.g. debug/marker files) are skipped and never checkpointed.
-# Invariant, so hardcoded; promote-to-config candidate noted in MAINTENANCE.md.
+# Invariant for Logpush, so hardcoded (promote-to-config candidate if a future
+# dataset uses a different suffix).
 _LOGPUSH_SUFFIX = ".log.gz"
 
 # KV Store query page size. Splunk caps a single query at ~50k rows; we page
@@ -272,9 +274,15 @@ def stream_events(inputs: smi.InputDefinition, event_writer: smi.EventWriter):
                             )
                         )
                         n += 1
-                except (R2Error, OSError) as exc:
-                    # Mid-stream failure: do NOT checkpoint so the whole file is
-                    # retried next poll (at-least-once; no partial-file state).
+                except (R2Error, OSError, EOFError, zlib.error) as exc:
+                    # Mid-stream failure: transient read/network error (R2Error,
+                    # OSError) OR a corrupt/truncated gzip object (EOFError from a
+                    # short stream, zlib.error from a bad CRC). Skip THIS object and
+                    # keep polling the rest of the window. Do NOT checkpoint, so the
+                    # file is retried next poll (at-least-once; no partial-file
+                    # state). Catching the gzip cases is load-bearing: without it a
+                    # single corrupt object aborts the entire input poll and wedges
+                    # every later object behind it (stuck input + duplicate emits).
                     logger.warning(
                         "skipping key=%s due to error: %s (will retry next poll)",
                         key, exc,

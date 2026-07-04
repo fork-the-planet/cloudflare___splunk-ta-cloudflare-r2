@@ -8,13 +8,22 @@ Verifies the stdlib signer in r2client.py against AWS's official
 Signature Version 4 test suite ("get-vanilla" case):
 https://docs.aws.amazon.com/general/latest/gr/signature-v4-test-suite.html
 
-Run:  python3 -m unittest test_sigv4 -v
-This is the test that lets CI/AppInspect verify signing correctness without
-any live R2 access, and guards against regressions in the canonicalization.
+Run:  python3 tests/test_sigv4.py        (from the repo root)
+  or  python3 -m unittest discover -s tests -v
+
+This is a dev/CI test only. It lives OUTSIDE package/ so it is never copied into
+the shipped .spl; it verifies signing correctness without any live R2 access and
+guards against regressions in the canonicalization.
 """
 
 import hashlib
+import os
+import sys
 import unittest
+
+# r2client.py ships in package/bin; add it to the path so this out-of-package
+# test can import the signer under test.
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "package", "bin"))
 
 from r2client import build_authorization, uri_encode, _parse_s3_error_code
 

@@ -145,7 +145,7 @@ under Rosetta 2 emulation. First boot takes 3-5 minutes.
 ### Seed test data
 
 ```bash
-python3 seed_test_data.py \
+python3 tools/seed_test_data.py \
   --account-id <your-account-id> \
   --access-key <your-r2-access-key-id> \
   --secret-key <your-r2-secret-access-key> \

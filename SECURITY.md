@@ -17,14 +17,11 @@ Include as much detail as possible:
 
 ### Credential storage
 
-In the current version, the R2 secret access key is stored in `inputs.conf`
-rather than Splunk's encrypted credential store (`storage/passwords`). This is
-a known limitation documented in [DEVELOPMENT.md](DEVELOPMENT.md). The field
-renders masked in the Splunk UI but is stored in plaintext on disk.
-
-**Mitigation**: Restrict read access to `$SPLUNK_HOME/etc/apps/TA-cloudflare-r2/`
-to the Splunk service account only. Use R2 API tokens scoped to Object Read
-on the specific bucket only - not account-level tokens.
+The R2 secret access key is never written to `inputs.conf`. At configuration
+time the add-on stores it in Splunk's encrypted credential store
+(`storage/passwords`) via solnlib's `conf_manager`, and the modular input reads
+it back from there at run time. No plaintext credential is written to the
+add-on's conf files or the app-local filesystem.
 
 ### R2 API token scope
 

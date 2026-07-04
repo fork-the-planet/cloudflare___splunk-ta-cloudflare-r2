@@ -8,7 +8,7 @@ Add-on for Splunk.
 1. Fork the repository
 2. Follow the local development setup in [DEVELOPMENT.md](DEVELOPMENT.md)
 3. Make your changes on a feature branch
-4. Run AppInspect to verify no regressions: `splunk-appinspect inspect TA-cloudflare-r2-*.tgz --mode precert`
+4. Run AppInspect to verify no regressions: `splunk-appinspect inspect TA_cloudflare_r2-*.tar.gz --mode precert`
 5. Open a pull request with a clear description of the change and why
 
 ## What we're looking for
