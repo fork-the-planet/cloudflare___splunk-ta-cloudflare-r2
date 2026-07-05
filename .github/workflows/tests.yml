@@ -1,0 +1,39 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.9 = the add-on's minimum supported Python (Splunk 9.4).
+        # 3.13 = the ceiling declared in python.required (see additional_packaging.py).
+        python-version: ["3.9", "3.13"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Syntax check (package/bin)
+        # py_compile only checks syntax - it does not execute module-level
+        # imports, so this passes without solnlib/splunklib/import_declare_test
+        # installed (those are Splunk-supplied and only exist after ucc-gen
+        # build, or in a real Splunk install).
+        run: python3 -m py_compile package/bin/*.py
+
+      - name: SigV4 known-answer test
+        # Pure standard library, no network, no credentials. Verifies the
+        # r2client.py signer against AWS's official test vector.
+        run: python3 tests/test_sigv4.py
