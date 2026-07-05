@@ -16,13 +16,16 @@ Add-on for Splunk.
 The highest-value contributions right now (see [DEVELOPMENT.md](DEVELOPMENT.md)
 for technical details):
 
-- **Credential encryption** via Splunk's `storage/passwords` API
 - **Splunk Cloud compatibility** testing and fixes
-- **Test coverage** - unit tests for checkpointing logic and R2 client configuration
+- **Test coverage** - the R2 client's SigV4 signer has an offline known-answer
+  test (`tests/test_sigv4.py`); checkpointing logic in
+  `cloudflare_r2_helper.py` (dedupe, lookback pruning) still has no automated
+  unit tests
 
 ## Code style
 
-- Python 3, no f-strings (for Splunk 8.x / Python 3.7 compatibility)
+- Python 3.9+ (minimum supported Splunk is 9.4) - f-strings and other 3.9
+  features are fine
 - No new external dependencies without a strong reason - keep the vendored
   library footprint small
 - Follow the existing pattern: transport only, no field extraction or
@@ -33,5 +36,6 @@ for technical details):
 Open a GitHub issue with:
 - Splunk version
 - Python version (check `$SPLUNK_HOME/bin/python3 --version`)
-- The relevant lines from `$SPLUNK_HOME/var/log/splunk/splunkd.log`
+- The relevant lines from `$SPLUNK_HOME/var/log/splunk/ta_cloudflare_r2_<input_name>.log`
+  (this add-on logs per-input via solnlib, not to `splunkd.log`)
 - Steps to reproduce

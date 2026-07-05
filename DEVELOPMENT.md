@@ -26,9 +26,10 @@ Splunk UCC add-on (cloudflare_r2 input)
   │     ├── list_objects_v2        # xml.etree parse, continuation-token pagination
   │     └── iter_object_lines      # gzip.GzipFile(fileobj=...) streaming, memory-safe
   │
-  ├── bin/test_sigv4.py            # offline SigV4 known-answer test (CI/AppInspect)
-  │
   └── lib/                         # splunklib / solnlib / splunktaucclib (supplied by ucc-gen)
+
+tests/test_sigv4.py                # offline SigV4 known-answer test (CI/AppInspect); lives
+                                    # outside package/ so it is not shipped in the .spl
 ```
 
 There is **no vendored boto3 stack** — the R2 access layer is entirely standard library.
