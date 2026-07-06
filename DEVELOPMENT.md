@@ -154,19 +154,19 @@ The add-on is generated from `package/` + `globalConfig.json` by `ucc-gen`. Buil
 the app into `output/`, then package a versioned `.spl`:
 
 ```bash
-ucc-gen build --ta-version 1.0.0
+ucc-gen build --ta-version 1.0.1
 ucc-gen package --path output/TA_cloudflare_r2
 ```
 
 `ucc-gen build` installs the Splunk-supplied libraries into
 `output/TA_cloudflare_r2/lib/` and injects `python.version` / `python.required`.
-`ucc-gen package` emits `TA_cloudflare_r2-1.0.0.spl`.
+`ucc-gen package` emits `TA_cloudflare_r2-1.0.1.spl`.
 
 ### Run AppInspect
 
 ```bash
 pip install splunk-appinspect
-splunk-appinspect inspect TA_cloudflare_r2-1.0.0.spl --mode precert
+splunk-appinspect inspect TA_cloudflare_r2-1.0.1.spl --mode precert
 ```
 
 ---

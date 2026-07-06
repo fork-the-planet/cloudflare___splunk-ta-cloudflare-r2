@@ -48,7 +48,7 @@ Cloudflare R2 bucket  →  ListObjectsV2 + GetObject  →  gunzip  →  Splunk i
 
 ## Installation
 
-1. Download `TA_cloudflare_r2-1.0.0.spl` from [Releases](../../releases)
+1. Download `TA_cloudflare_r2-1.0.1.spl` from [Releases](../../releases)
 2. In Splunk Web: **Apps > Manage Apps > Install app from file**
 3. Upload the `.spl` file and click **Upload**
 

@@ -16,4 +16,10 @@ Configuration:
 2. Inputs > Create New Input: select the account, set the bucket name, optional
    key prefix, interval, index, and sourcetype.
 
-Release notes: 1.0.0 - Initial UCC-based release.
+Release notes:
+1.0.1 - Fix: strip whitespace from Account credential fields (a leading/
+        trailing space or newline could silently break R2 authentication);
+        R2 error messages now include an actionable hint for common causes
+        (wrong/stale secret, clock skew, wrong bucket, insufficient token
+        scope).
+1.0.0 - Initial UCC-based release.
