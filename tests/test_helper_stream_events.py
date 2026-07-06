@@ -45,6 +45,7 @@ install_stubs()
 
 import cloudflare_r2_helper as helper  # noqa: E402
 from _fake_kvstore import FakeKVCollection  # noqa: E402
+from r2client import R2Error  # noqa: E402
 
 
 FAKE_ACCOUNT = {
@@ -60,12 +61,16 @@ class FakeR2Client:
     """Test double for r2client.R2Client. Configure `.keys` and
     `.lines_by_key` before the call; `.raise_after` maps a key to an
     exception to raise immediately after yielding that key's configured
-    lines (simulating a corrupt/truncated object mid-stream)."""
+    lines (simulating a corrupt/truncated object mid-stream);
+    `.raise_on_listing`, if set, is raised by iter_object_keys() itself
+    before yielding any keys (simulating a ListObjectsV2-level failure such
+    as bad credentials)."""
 
     def __init__(self):
         self.keys = []
         self.lines_by_key = {}
         self.raise_after = {}
+        self.raise_on_listing = None
         self.iter_object_keys_calls = []
         self.iter_object_lines_calls = []
 
@@ -73,6 +78,8 @@ class FakeR2Client:
         self.iter_object_keys_calls.append(
             {"bucket": bucket, "prefix": prefix, "start_after": start_after}
         )
+        if self.raise_on_listing:
+            raise self.raise_on_listing
         for k in self.keys:
             yield k
 
@@ -252,6 +259,37 @@ class TestCorruptObjectHandling(StreamEventsTestCase):
         self.assertNotIn(later_key, [k for _, k in self.fake_client.iter_object_lines_calls])
 
 
+class TestListingErrorAbort(StreamEventsTestCase):
+    """R2Error raised by iter_object_keys() itself (the ListObjectsV2 call) -
+    most commonly a credential/auth failure - must abort this input's poll
+    cleanly with a hint, not fall through to the generic per-input exception
+    handler (which would only log a raw 'IngestionError' with no guidance)."""
+
+    def test_signature_does_not_match_aborts_cleanly_with_hint(self):
+        self.fake_client.raise_on_listing = R2Error(
+            403, "SignatureDoesNotMatch", "<xml/>"
+        )
+        with self.assertLogs(level="ERROR") as logs:
+            writer = self.run_stream_events()
+
+        self.assertEqual(writer.events, [])
+        self.assertEqual(self.collection.data.all_rows(), [])
+        joined = "\n".join(logs.output)
+        self.assertIn("SignatureDoesNotMatch", joined)
+        self.assertIn("Secret Access Key", joined)  # the hint text
+
+    def test_unknown_error_code_aborts_cleanly_without_a_fabricated_hint(self):
+        self.fake_client.raise_on_listing = R2Error(500, "InternalError", "<xml/>")
+        with self.assertLogs(level="ERROR") as logs:
+            writer = self.run_stream_events()
+
+        self.assertEqual(writer.events, [])
+        joined = "\n".join(logs.output)
+        self.assertIn("InternalError", joined)
+        # No hint exists for this code - the message shouldn't claim one.
+        self.assertNotIn(" -- ", joined)
+
+
 class TestNonLogpushSuffix(StreamEventsTestCase):
 
     def test_key_not_ending_in_log_gz_is_skipped_before_fetching(self):
@@ -403,6 +441,36 @@ class TestAccountWiring(StreamEventsTestCase):
                 self.run_stream_events()
 
         self.assertFalse(captured["verify_ssl"])
+
+    def test_credential_fields_are_stripped_of_whitespace(self):
+        # Regression test for a real customer-reported bug: a leading/
+        # trailing space or newline in any of these three fields (e.g. from
+        # copy-pasting into the Account form) silently corrupts the SigV4
+        # signature. Confirmed against live R2: a whitespace-padded
+        # secret_access_key reproduces status=403 SignatureDoesNotMatch
+        # exactly; padded access_key_id/account_id fail differently
+        # (InvalidArgument / a raw ValueError or InvalidURL from urllib) but
+        # are equally avoidable. All three must be stripped before
+        # R2Client ever sees them.
+        padded_account = dict(
+            FAKE_ACCOUNT,
+            account_id=" " + FAKE_ACCOUNT["account_id"] + " ",
+            access_key_id="\t" + FAKE_ACCOUNT["access_key_id"],
+            secret_access_key=FAKE_ACCOUNT["secret_access_key"] + "\n",
+        )
+        captured = {}
+
+        def _fake_r2client_ctor(**kwargs):
+            captured.update(kwargs)
+            return self.fake_client
+
+        with mock.patch.object(helper, "_get_account", return_value=padded_account):
+            with mock.patch.object(helper, "R2Client", side_effect=_fake_r2client_ctor):
+                self.run_stream_events()
+
+        self.assertEqual(captured["account_id"], FAKE_ACCOUNT["account_id"])
+        self.assertEqual(captured["access_key"], FAKE_ACCOUNT["access_key_id"])
+        self.assertEqual(captured["secret_key"], FAKE_ACCOUNT["secret_access_key"])
 
 
 if __name__ == "__main__":

@@ -28,7 +28,13 @@ from _splunk_stubs import install_stubs  # noqa: E402
 
 install_stubs()
 
-from cloudflare_r2_helper import _as_bool, _normalize_prefix, _window_floor  # noqa: E402
+from cloudflare_r2_helper import (  # noqa: E402
+    _as_bool,
+    _normalize_prefix,
+    _r2_error_hint,
+    _window_floor,
+)
+from r2client import R2Error  # noqa: E402
 
 
 class TestAsBool(unittest.TestCase):
@@ -161,6 +167,47 @@ class TestWindowFloor(unittest.TestCase):
         self.assertRegex(
             result, r"^some_prefix/\d{8}/\d{8}T\d{6}Z$"
         )
+
+
+class TestR2ErrorHint(unittest.TestCase):
+    """_r2_error_hint() translates known R2/S3 error codes into an
+    actionable log hint. The specific codes covered here were each verified
+    against live R2 to be genuinely distinguishable from one another (not
+    the same generic failure surfacing under different names) - see the
+    comment above _R2_ERROR_HINTS in cloudflare_r2_helper.py."""
+
+    def test_known_codes_return_a_nonempty_hint(self):
+        for code in (
+            "SignatureDoesNotMatch",
+            "InvalidAccessKeyId",
+            "RequestTimeTooSkewed",
+            "NoSuchBucket",
+            "AccessDenied",
+        ):
+            exc = R2Error(403, code, "<xml/>")
+            hint = _r2_error_hint(exc)
+            self.assertTrue(hint, "expected a non-empty hint for {!r}".format(code))
+
+    def test_signature_does_not_match_hint_mentions_secret_key(self):
+        exc = R2Error(403, "SignatureDoesNotMatch", "<xml/>")
+        hint = _r2_error_hint(exc)
+        self.assertIn("Secret Access Key", hint)
+
+    def test_request_time_too_skewed_hint_mentions_clock(self):
+        exc = R2Error(403, "RequestTimeTooSkewed", "<xml/>")
+        hint = _r2_error_hint(exc)
+        self.assertIn("clock", hint.lower())
+
+    def test_unknown_code_returns_empty_string(self):
+        exc = R2Error(500, "InternalError", "<xml/>")
+        self.assertEqual(_r2_error_hint(exc), "")
+
+    def test_non_r2error_exception_returns_empty_string(self):
+        # Call sites catch a broader tuple (R2Error, OSError, EOFError,
+        # zlib.error) and call this unconditionally - a plain exception with
+        # no .code attribute must not raise, just return no hint.
+        self.assertEqual(_r2_error_hint(OSError("connection reset")), "")
+        self.assertEqual(_r2_error_hint(ValueError("whatever")), "")
 
 
 if __name__ == "__main__":
