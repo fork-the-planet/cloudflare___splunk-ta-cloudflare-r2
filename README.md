@@ -227,7 +227,8 @@ reset only when you intend to backfill.
 
 ## Known limitations
 
-- **No Splunk Cloud validation** - tested on Splunk Enterprise only.
+- **Splunk Cloud is not a supported deployment target** - this add-on is built and
+  tested for on-premises Splunk Enterprise only.
 
 ---
 

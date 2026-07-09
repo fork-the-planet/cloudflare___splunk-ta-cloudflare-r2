@@ -95,12 +95,13 @@ byte-offset tracking within a file.
 
 ## Known gaps for a production deployment
 
-### Splunk Cloud compatibility
+### Splunk Cloud support
 
-Targeting Splunk Cloud (Victoria) + Cloud vetting via UCC. The stdlib client and the KV
-Store checkpoint (no app-local filesystem writes) are chosen partly for Cloud rules. Note:
-inputs require KV Store, so they must run on a heavy forwarder / IDM / standalone, **not a
-Universal Forwarder**. Minimum supported Splunk is **9.4**.
+Not currently pursued. A Splunk Cloud developer account (required for Cloud vetting) has
+been requested and is pending admission to Splunk's beta program; Cloud support can be
+revisited once that access is available. Until then, this add-on targets on-premises
+Splunk Enterprise only. Inputs require KV Store, so they must run on a heavy forwarder /
+IDM / standalone, **not a Universal Forwarder**. Minimum supported Splunk is **9.4**.
 
 <!-- Credential encryption and TLS verify_ssl/ca_bundle used to be listed here as
      "known gaps" - both are resolved design decisions, not gaps, and duplicating
