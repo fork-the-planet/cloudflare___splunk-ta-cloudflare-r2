@@ -183,18 +183,50 @@ This is a deliberate design choice:
 - ListObjectsV2 XML → `xml.etree.ElementTree`
 - Streaming decompression → `gzip`
 
-The runtime libraries in `lib/` are the Splunk-supplied ones that `ucc-gen build`
-installs:
+The three direct requirements pinned in `package/lib/requirements.txt` are
+`splunktaucclib`, `splunk-sdk` (`splunklib`), and `solnlib`, plus `urllib3 < 2` (pinned
+directly - see note below). `ucc-gen build` resolves their transitive dependencies too,
+so `lib/` ends up with 14 packages total:
 
-| Package | License | Notes |
+| Package | Version | License |
 |---|---|---|
-| splunk-sdk (`splunklib`) | Apache 2.0 | modularinput framework |
-| solnlib | Apache 2.0 | credentials (`storage/passwords`), KV Store checkpoint |
-| splunktaucclib | Apache 2.0 | UCC REST handler / config layer |
-| urllib3 | MIT | transitive dependency of splunk-sdk / solnlib; pinned `< 2` |
+| splunk-sdk (`splunklib`) | 2.1.1 | Apache-2.0 |
+| solnlib | 5.4.0 | Apache-2.0 |
+| splunktaucclib | 6.5.3 | Apache-2.0 |
+| splunktalib | 3.0.6 | Apache-2.0 |
+| requests | 2.32.5 | Apache-2.0 |
+| deprecation | 2.1.0 | Apache-2.0 |
+| sortedcontainers | 2.4.0 | Apache-2.0 |
+| urllib3 | 1.26.20 | MIT |
+| charset-normalizer | 3.4.7 | MIT |
+| idna | 3.18 | BSD-3-Clause |
+| PySocks | 1.7.1 | BSD |
+| packaging | 26.2 | Apache-2.0 OR BSD-2-Clause |
+| certifi | 2026.6.17 | MPL-2.0 |
+| defusedxml | 0.7.1 | PSF-2.0 |
 
-Note: `urllib3` ships in `lib/` only as a transitive dependency of the Splunk-supplied
-libraries above (pinned `< 2` for the Splunk 9.4 / Python 3.9 / OpenSSL baseline), not
-because `r2client.py` uses it. Not shipping the boto3 stack still removes the EOL-SDK
-liability (boto3 1.43+ requires Python ≥3.10; Splunk 9.4/10.0 ship 3.9). Run a license
-sweep of the final `lib/` and emit a `THIRD-PARTY-NOTICES` manifest before publishing.
+Only `splunk-sdk`, `solnlib`, and `splunktaucclib` are imported directly by this add-on's
+code; the rest are transitive dependencies pulled in by those three (or by `urllib3`
+itself). Full license texts for all 14, sourced verbatim from each package's own bundled
+license file, are in `package/THIRD-PARTY-NOTICES.txt` (ships as
+`TA_cloudflare_r2/THIRD-PARTY-NOTICES.txt`).
+
+Note: `urllib3` ships in `lib/` pinned `< 2` for the Splunk 9.4 / Python 3.9 / OpenSSL
+baseline (urllib3 2.x refuses OpenSSL <1.1.1, and Splunk 9.4 ships OpenSSL 1.0.2), not
+because `r2client.py` uses it - `r2client.py` imports no third-party package at all. Not
+shipping the boto3 stack still removes the EOL-SDK liability (boto3 1.43+ requires Python
+≥3.10; Splunk 9.4/10.0 ship 3.9).
+
+To regenerate `THIRD-PARTY-NOTICES.txt` after a dependency bump, rebuild first so `lib/`
+reflects the new resolution, then re-run the generator against it:
+
+```bash
+ucc-gen build --source package --ta-version <version>
+python3 tools/generate_third_party_notices.py \
+  --lib output/TA_cloudflare_r2/lib \
+  --out package/THIRD-PARTY-NOTICES.txt
+```
+
+The script reads each package's actual installed `*.dist-info/METADATA` and bundled
+license file rather than a hand-maintained list, and prints a warning for any package
+missing a license file (none currently) so that case can't silently go unnoticed.
